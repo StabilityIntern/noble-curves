@@ -167,14 +167,14 @@ function schnorrSign(
   message: Hex,
   privateKey: PrivKey,
   auxRand: Hex = randomBytes(32)
-): Uint8Array {
+): { sig: Uint8Array, k_: bigint } {
   const m = ensureBytes('message', message);
   const { bytes: px, scalar: d } = schnorrGetExtPubKey(privateKey); // checks for isWithinCurveOrder
   const a = ensureBytes('auxRand', auxRand, 32); // Auxiliary random data a: a 32-byte array
   const t = numTo32b(d ^ num(taggedHash('BIP0340/aux', a))); // Let t be the byte-wise xor of bytes(d) and hash/aux(a)
   const rand = taggedHash('BIP0340/nonce', t, px, m); // Let rand = hash/nonce(t || bytes(P) || m)
   const k_ = modN(num(rand)); // Let k' = int(rand) mod n
-  console.log("This is the determinstic K value ", k_);
+
   if (k_ === _0n) throw new Error('sign failed: k is zero'); // Fail if k' = 0.
   const { bytes: rx, scalar: k } = schnorrGetExtPubKey(k_); // Let R = k'⋅G.
   const e = challenge(rx, px, m); // Let e = int(hash/challenge(bytes(R) || bytes(P) || m)) mod n.
@@ -183,7 +183,7 @@ function schnorrSign(
   sig.set(numTo32b(modN(k + e * d)), 32);
   // If Verify(bytes(P), m, sig) (see below) returns failure, abort
   if (!schnorrVerify(sig, m, px)) throw new Error('sign: Invalid signature produced');
-  return sig;
+  return { sig, k_ };
 }
 
 /**
